@@ -3,64 +3,254 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>긴급 상황 게임</title>
-<link rel="manifest" href="manifest.json">
+
+<title>긴급 탈출</title>
+
 <style>
-body {font-family:sans-serif;background:#111;color:white;text-align:center;padding:20px;}
-button {display:block;width:90%;margin:10px auto;padding:15px;font-size:16px;}
-.bar {height:20px;background:red;margin:10px 0;}
+body {
+  margin:0;
+  font-family:sans-serif;
+  background:#0d0d0d;
+  color:white;
+  overflow:hidden;
+}
+
+/* 캐릭터 */
+.char {
+  position:fixed;
+  bottom:120px;
+  left:5%;
+  width:200px;
+  opacity:0.9;
+  transition:0.3s;
+}
+
+/* 게이지 */
+#gaugeBox {
+  position:fixed;
+  right:5%;
+  bottom:150px;
+  width:140px;
+  background:rgba(0,0,0,0.6);
+  padding:10px;
+  border-radius:12px;
+  border:1px solid #444;
+}
+
+#gaugeBar {
+  width:100%;
+  height:12px;
+  background:#222;
+  border-radius:6px;
+  overflow:hidden;
+}
+
+#gaugeFill {
+  height:100%;
+  width:50%;
+  background:red;
+  transition:0.3s;
+}
+
+/* 대사창 */
+#dialogueBox {
+  position:fixed;
+  bottom:80px;
+  width:100%;
+  background:rgba(0,0,0,0.7);
+  padding:15px;
+  box-sizing:border-box;
+  border-top:1px solid #333;
+}
+
+#name {
+  color:#ffccaa;
+  font-weight:bold;
+}
+
+#dialogue {
+  margin-top:5px;
+}
+
+/* 선택지 */
+.choice-container {
+  position:fixed;
+  bottom:0;
+  width:100%;
+  padding:10px;
+}
+
+.choice {
+  background:rgba(30,30,30,0.9);
+  border:1px solid #444;
+  border-radius:10px;
+  padding:12px;
+  margin:6px;
+  text-align:center;
+}
+
+.choice:hover {
+  background:#444;
+}
+
+.danger { color:#ff8888; border-color:red; }
+.disabled { opacity:0.3; }
+
+/* 애니메이션 */
+@keyframes fadeUp {
+  from {opacity:0; transform:translateY(20px);}
+  to {opacity:1; transform:translateY(0);}
+}
 </style>
 </head>
+
 <body>
-<h2 id="text">당신은 낯선 건물 안에 갇혔다...</h2>
-<div>⏳ 시간</div>
-<div class="bar" id="timeBar"></div>
-<div>⚠️ 위험도</div>
-<div class="bar" id="dangerBar"></div>
-<div id="choices"></div>
+
+<!-- 캐릭터 -->
+<img id="leftChar" class="char">
+
+<!-- 게이지 -->
+<div id="gaugeBox">
+  <div>컨디션</div>
+  <div id="gaugeBar"><div id="gaugeFill"></div></div>
+</div>
+
+<!-- 대사 -->
+<div id="dialogueBox">
+  <div id="name"></div>
+  <div id="dialogue"></div>
+</div>
+
+<!-- 선택지 -->
+<div id="choices" class="choice-container"></div>
+
+<!-- 사운드 -->
+<audio id="bgmNormal" src="sounds/bgm_normal.mp3" loop></audio>
+<audio id="bgmTense" src="sounds/bgm_tense.mp3" loop></audio>
+<audio id="clickSound" src="sounds/click.mp3"></audio>
 
 <script>
-let time = 100;
-let danger = 0;
+let state = { pressure:0, time:100 };
 
-function updateBars(){
- document.getElementById("timeBar").style.width=time+"%";
- document.getElementById("dangerBar").style.width=danger+"%";
+// ===== 시스템 =====
+function stage(){
+  if(state.pressure < 30) return 0;
+  if(state.pressure < 60) return 1;
+  if(state.pressure < 85) return 2;
+  return 3;
 }
 
-function endGame(msg){
- document.getElementById("text").innerText=msg;
- document.getElementById("choices").innerHTML="";
+// ===== UI =====
+function updateGauge(){
+  let fill = document.getElementById("gaugeFill");
+  fill.style.width = state.pressure + "%";
+
+  if(state.pressure < 30) fill.style.background="lime";
+  else if(state.pressure < 60) fill.style.background="yellow";
+  else if(state.pressure < 85) fill.style.background="orange";
+  else fill.style.background="red";
 }
 
-function choice(text,effect){
- let btn=document.createElement("button");
- btn.innerText=text;
- btn.onclick=effect;
- document.getElementById("choices").appendChild(btn);
+// ===== 사운드 =====
+function play(id){
+  let a = document.getElementById(id);
+  if(a){ a.currentTime=0; a.play(); }
 }
 
-function start(){
- updateBars();
- choice("주변을 조사한다",()=>{danger+=10;nextScene("이상한 소리가 들린다...");});
- choice("출구를 찾는다",()=>{time-=20;nextScene("문이 잠겨 있다...");});
+function switchBGM(){
+  if(stage() < 2){
+    document.getElementById("bgmNormal").play();
+    document.getElementById("bgmTense").pause();
+  } else {
+    document.getElementById("bgmTense").play();
+    document.getElementById("bgmNormal").pause();
+  }
 }
 
-function nextScene(msg){
- document.getElementById("text").innerText=msg;
- document.getElementById("choices").innerHTML="";
- if(time<=0) return endGame("시간 초과... 실패");
- if(danger>=100) return endGame("위험 한계... 실패");
+// ===== 타이핑 =====
+let typing=false;
 
- choice("계속 진행",()=>{time-=10;danger+=15;nextScene("상황이 악화된다...");});
- choice("숨는다",()=>{danger-=10;nextScene("잠시 안정...");});
+function typeText(text){
+  let i=0;
+  typing=true;
+  let el=document.getElementById("dialogue");
+  el.innerText="";
 
- if(time>50 && danger<50){
-  choice("탈출 시도",()=>{endGame("탈출 성공!");});
- }
- updateBars();
+  let t=setInterval(()=>{
+    el.innerText+=text[i++];
+    if(i>=text.length){
+      clearInterval(t);
+      typing=false;
+    }
+  },30);
 }
-start();
+
+// ===== 대사 =====
+function showDialogue(name,text,face){
+  document.getElementById("name").innerText=name;
+  document.getElementById("leftChar").src=face;
+  typeText(text);
+}
+
+// ===== 선택지 =====
+function clearChoices(){
+  document.getElementById("choices").innerHTML="";
+}
+
+function choice(text,fn,opt={}){
+  let div=document.createElement("div");
+  div.className="choice";
+  if(opt.danger) div.classList.add("danger");
+  if(opt.disabled) div.classList.add("disabled");
+
+  div.innerText=text;
+  div.onclick=()=>{
+    if(opt.disabled) return;
+    play("clickSound");
+    fn();
+  };
+
+  div.style.animation="fadeUp 0.3s";
+  document.getElementById("choices").appendChild(div);
+}
+
+// ===== 게임 =====
+function next(){
+  updateGauge();
+  switchBGM();
+  clearChoices();
+
+  if(state.pressure>=100){
+    showDialogue("주인공","…더 이상 버틸 수 없어…","images/left_panic.png");
+    return;
+  }
+
+  showDialogue("주인공","어떻게 할까…","images/left_normal.png");
+
+  choice("탐색",()=>{
+    state.pressure+=10;
+    next();
+  });
+
+  choice("이동",()=>{
+    state.pressure+=15;
+    next();
+  });
+
+  choice("침착하게 행동",()=>{
+    state.pressure-=10;
+    next();
+  });
+}
+
+// 시작
+next();
+
+// 모바일 사운드 활성화
+document.addEventListener("click", ()=>{
+  document.getElementById("bgmNormal").play();
+}, {once:true});
 </script>
+
 </body>
 </html>
