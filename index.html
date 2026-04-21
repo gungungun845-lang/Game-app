@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>긴급 상황 게임</title>
+<link rel="manifest" href="manifest.json">
+<style>
+body {font-family:sans-serif;background:#111;color:white;text-align:center;padding:20px;}
+button {display:block;width:90%;margin:10px auto;padding:15px;font-size:16px;}
+.bar {height:20px;background:red;margin:10px 0;}
+</style>
+</head>
+<body>
+<h2 id="text">당신은 낯선 건물 안에 갇혔다...</h2>
+<div>⏳ 시간</div>
+<div class="bar" id="timeBar"></div>
+<div>⚠️ 위험도</div>
+<div class="bar" id="dangerBar"></div>
+<div id="choices"></div>
+
+<script>
+let time = 100;
+let danger = 0;
+
+function updateBars(){
+ document.getElementById("timeBar").style.width=time+"%";
+ document.getElementById("dangerBar").style.width=danger+"%";
+}
+
+function endGame(msg){
+ document.getElementById("text").innerText=msg;
+ document.getElementById("choices").innerHTML="";
+}
+
+function choice(text,effect){
+ let btn=document.createElement("button");
+ btn.innerText=text;
+ btn.onclick=effect;
+ document.getElementById("choices").appendChild(btn);
+}
+
+function start(){
+ updateBars();
+ choice("주변을 조사한다",()=>{danger+=10;nextScene("이상한 소리가 들린다...");});
+ choice("출구를 찾는다",()=>{time-=20;nextScene("문이 잠겨 있다...");});
+}
+
+function nextScene(msg){
+ document.getElementById("text").innerText=msg;
+ document.getElementById("choices").innerHTML="";
+ if(time<=0) return endGame("시간 초과... 실패");
+ if(danger>=100) return endGame("위험 한계... 실패");
+
+ choice("계속 진행",()=>{time-=10;danger+=15;nextScene("상황이 악화된다...");});
+ choice("숨는다",()=>{danger-=10;nextScene("잠시 안정...");});
+
+ if(time>50 && danger<50){
+  choice("탈출 시도",()=>{endGame("탈출 성공!");});
+ }
+ updateBars();
+}
+start();
+</script>
+</body>
+</html>
